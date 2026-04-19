@@ -2,9 +2,9 @@ package pl.zubermc.npc;
 
 import com.mojang.authlib.GameProfile;
 import net.minecraft.network.protocol.game.*;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.*;
@@ -30,12 +30,7 @@ public class ZubrNPC extends JavaPlugin implements Listener {
         registerCommand();
     }
 
-    @Override
-    public void onDisable() {
-        removeNPC();
-    }
-
-    // ================= KOMENDA =================
+    // ================= COMMAND =================
 
     private void registerCommand() {
         try {
@@ -44,29 +39,21 @@ public class ZubrNPC extends JavaPlugin implements Listener {
                     .getDeclaredField("commandMap")
                     .get(Bukkit.getServer());
 
-            map.register("zubrnpc", new Command("npczuber") {
+            map.register("npc", new Command("npczuber") {
                 @Override
                 public boolean execute(CommandSender sender, String label, String[] args) {
 
                     if (!(sender instanceof Player p)) return false;
 
-                    if (args.length == 0) {
-                        p.sendMessage("/npczuber stworz <nazwa>");
-                        p.sendMessage("/npczuber usun");
+                    if (args.length < 2) {
+                        p.sendMessage("§6/npczuber stworz <nazwa>");
                         return true;
                     }
 
                     if (args[0].equalsIgnoreCase("stworz")) {
-
-                        if (args.length < 2) {
-                            p.sendMessage("Podaj nazwę NPC!");
-                            return true;
-                        }
-
                         String name = args[1];
                         spawnNPC(p.getLocation(), name);
-
-                        p.sendMessage("§aNPC stworzony: " + name);
+                        p.sendMessage("§aNPC stworzony!");
                         return true;
                     }
 
@@ -85,7 +72,7 @@ public class ZubrNPC extends JavaPlugin implements Listener {
         }
     }
 
-    // ================= NPC SPAWN =================
+    // ================= SPAWN =================
 
     private void spawnNPC(Location loc, String name) {
         removeNPC();
@@ -93,22 +80,26 @@ public class ZubrNPC extends JavaPlugin implements Listener {
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         ServerLevel world = ((CraftWorld) loc.getWorld()).getHandle();
 
-        GameProfile profile = new GameProfile(UUID.randomUUID(), name);
+        // 🔥 BRAK "zzuberek" - CZYSTY NPC
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "npc");
 
         npc = new ServerPlayer(server, world, profile);
 
         npc.setPos(loc.getX(), loc.getY(), loc.getZ());
-        npc.setYRot(loc.getYaw());
-        npc.setXRot(loc.getPitch());
 
         world.addFreshEntity(npc);
 
         npcId = npc.getId();
 
+        // 🔥 PREFIX + NAZWA Z KOMENDY
+        String display = "§6[ZZUBEREK] §e" + name;
+
+        npc.setCustomName(net.minecraft.network.chat.Component.literal(display));
+        npc.setCustomNameVisible(true);
+
         for (Player p : Bukkit.getOnlinePlayers()) {
             var conn = ((CraftPlayer) p).getHandle().connection;
 
-            // pokazanie NPC
             conn.send(new ClientboundPlayerInfoUpdatePacket(
                     ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,
                     npc
@@ -116,18 +107,13 @@ public class ZubrNPC extends JavaPlugin implements Listener {
 
             conn.send(new ClientboundAddEntityPacket(npc));
 
-            conn.send(new ClientboundRotateHeadPacket(npc,
-                    (byte) (loc.getYaw() * 256 / 360)
-            ));
-
-            // ukrycie z TAB po chwili
             Bukkit.getScheduler().runTaskLater(this, () ->
                     conn.send(new ClientboundPlayerInfoRemovePacket(List.of(npc.getUUID())))
             , 40L);
         }
     }
 
-    // ================= USUWANIE =================
+    // ================= REMOVE =================
 
     private void removeNPC() {
         if (npc == null) return;
@@ -149,6 +135,6 @@ public class ZubrNPC extends JavaPlugin implements Listener {
         if (e.getRightClicked().getEntityId() != npcId) return;
 
         e.setCancelled(true);
-        e.getPlayer().sendMessage("§eKliknąłeś NPC: §6" + npc.getGameProfile().getName());
+        e.getPlayer().sendMessage("§eKliknąłeś NPC!");
     }
 }
