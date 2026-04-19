@@ -1,28 +1,24 @@
 package pl.zubermc.npc;
 
-import com.mojang.authlib.GameProfile;
-import net.minecraft.network.protocol.game.*;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.*;
-import org.bukkit.craftbukkit.v1_21_R4.CraftServer;
-import org.bukkit.craftbukkit.v1_21_R4.CraftWorld;
-import org.bukkit.craftbukkit.v1_21_R4.entity.CraftPlayer;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ZubrNPC extends JavaPlugin implements Listener {
 
-    private ServerPlayer npc;
-    private int npcId;
+    private ArmorStand npc;
+    private ArmorStand holo;
+
+    private final Map<Integer, String> npcNames = new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -33,108 +29,84 @@ public class ZubrNPC extends JavaPlugin implements Listener {
     // ================= COMMAND =================
 
     private void registerCommand() {
-        try {
-            CommandMap map = (CommandMap) Bukkit.getServer()
-                    .getClass()
-                    .getDeclaredField("commandMap")
-                    .get(Bukkit.getServer());
+        Bukkit.getPluginCommand("npczuber").setExecutor((sender, cmd, label, args) -> {
 
-            map.register("npc", new Command("npczuber") {
-                @Override
-                public boolean execute(CommandSender sender, String label, String[] args) {
+            if (!(sender instanceof Player p)) return false;
 
-                    if (!(sender instanceof Player p)) return false;
+            if (args.length < 2) {
+                p.sendMessage("§6/npczuber stworz <nazwa>");
+                p.sendMessage("§6/npczuber usun");
+                return true;
+            }
 
-                    if (args.length < 2) {
-                        p.sendMessage("§6/npczuber stworz <nazwa>");
-                        return true;
-                    }
+            if (args[0].equalsIgnoreCase("stworz")) {
+                spawnNPC(p.getLocation(), args[1]);
+                p.sendMessage("§aNPC stworzony!");
+                return true;
+            }
 
-                    if (args[0].equalsIgnoreCase("stworz")) {
-                        String name = args[1];
-                        spawnNPC(p.getLocation(), name);
-                        p.sendMessage("§aNPC stworzony!");
-                        return true;
-                    }
+            if (args[0].equalsIgnoreCase("usun")) {
+                removeNPC();
+                p.sendMessage("§cNPC usunięty!");
+                return true;
+            }
 
-                    if (args[0].equalsIgnoreCase("usun")) {
-                        removeNPC();
-                        p.sendMessage("§cNPC usunięty!");
-                        return true;
-                    }
-
-                    return false;
-                }
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            return false;
+        });
     }
 
-    // ================= SPAWN =================
+    // ================= SPAWN NPC =================
 
     private void spawnNPC(Location loc, String name) {
+
         removeNPC();
 
-        MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
-        ServerLevel world = ((CraftWorld) loc.getWorld()).getHandle();
+        // 🔥 BODY NPC (ArmorStand)
+        npc = loc.getWorld().spawn(loc, ArmorStand.class);
+        npc.setInvisible(true);
+        npc.setGravity(false);
+        npc.setMarker(true);
+        npc.setCustomNameVisible(false);
 
-        // 🔥 BRAK "zzuberek" - CZYSTY NPC
-        GameProfile profile = new GameProfile(UUID.randomUUID(), "npc");
+        // 🔥 HOLOGRAM
+        Location holoLoc = loc.clone().add(0, 2.0, 0);
 
-        npc = new ServerPlayer(server, world, profile);
+        holo = loc.getWorld().spawn(holoLoc, ArmorStand.class);
+        holo.setInvisible(true);
+        holo.setGravity(false);
+        holo.setMarker(true);
+        holo.setCustomNameVisible(true);
 
-        npc.setPos(loc.getX(), loc.getY(), loc.getZ());
-
-        world.addFreshEntity(npc);
-
-        npcId = npc.getId();
-
-        // 🔥 PREFIX + NAZWA Z KOMENDY
         String display = "§6[ZZUBEREK] §e" + name;
+        holo.setCustomName(display);
 
-        npc.setCustomName(net.minecraft.network.chat.Component.literal(display));
-        npc.setCustomNameVisible(true);
-
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            var conn = ((CraftPlayer) p).getHandle().connection;
-
-            conn.send(new ClientboundPlayerInfoUpdatePacket(
-                    ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,
-                    npc
-            ));
-
-            conn.send(new ClientboundAddEntityPacket(npc));
-
-            Bukkit.getScheduler().runTaskLater(this, () ->
-                    conn.send(new ClientboundPlayerInfoRemovePacket(List.of(npc.getUUID())))
-            , 40L);
-        }
+        npcNames.put(npc.getEntityId(), name);
     }
 
     // ================= REMOVE =================
 
     private void removeNPC() {
-        if (npc == null) return;
-
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            var conn = ((CraftPlayer) p).getHandle().connection;
-            conn.send(new ClientboundRemoveEntitiesPacket(npcId));
-        }
-
-        npc.kill();
+        if (npc != null) npc.remove();
+        if (holo != null) holo.remove();
         npc = null;
+        holo = null;
+        npcNames.clear();
     }
 
     // ================= CLICK =================
 
     @EventHandler
-    public void onClick(PlayerInteractEntityEvent e) {
+    public void onClick(PlayerInteractAtEntityEvent e) {
+
+        Entity clicked = e.getRightClicked();
+
         if (npc == null) return;
-        if (e.getRightClicked().getEntityId() != npcId) return;
+        if (clicked.getEntityId() != npc.getEntityId()) return;
 
         e.setCancelled(true);
-        e.getPlayer().sendMessage("§eKliknąłeś NPC!");
+
+        String name = npcNames.get(npc.getEntityId());
+
+        e.getPlayer().sendMessage("§eKliknąłeś NPC: §6" + name);
     }
 }
