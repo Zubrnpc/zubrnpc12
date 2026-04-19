@@ -29,7 +29,11 @@ public class ZubrNPC extends JavaPlugin implements Listener {
     // ================= COMMAND =================
 
     private void registerCommand() {
-        Bukkit.getPluginCommand("npczuber").setExecutor((sender, cmd, label, args) -> {
+
+        PluginCommand cmd = getCommand("npczuber");
+        if (cmd == null) return;
+
+        cmd.setExecutor((sender, command, label, args) -> {
 
             if (!(sender instanceof Player p)) return false;
 
@@ -61,24 +65,21 @@ public class ZubrNPC extends JavaPlugin implements Listener {
 
         removeNPC();
 
-        // 🔥 BODY NPC (ArmorStand)
+        // BODY NPC
         npc = loc.getWorld().spawn(loc, ArmorStand.class);
         npc.setInvisible(true);
         npc.setGravity(false);
         npc.setMarker(true);
         npc.setCustomNameVisible(false);
 
-        // 🔥 HOLOGRAM
-        Location holoLoc = loc.clone().add(0, 2.0, 0);
-
-        holo = loc.getWorld().spawn(holoLoc, ArmorStand.class);
+        // HOLOGRAM (TYLKO NAZWA Z KOMENDY)
+        holo = loc.getWorld().spawn(loc.clone().add(0, 2.0, 0), ArmorStand.class);
         holo.setInvisible(true);
         holo.setGravity(false);
         holo.setMarker(true);
         holo.setCustomNameVisible(true);
 
-        String display = "§6[ZZUBEREK] §e" + name;
-        holo.setCustomName(display);
+        holo.setCustomName("§e" + name);
 
         npcNames.put(npc.getEntityId(), name);
     }
@@ -88,6 +89,7 @@ public class ZubrNPC extends JavaPlugin implements Listener {
     private void removeNPC() {
         if (npc != null) npc.remove();
         if (holo != null) holo.remove();
+
         npc = null;
         holo = null;
         npcNames.clear();
