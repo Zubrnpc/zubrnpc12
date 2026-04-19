@@ -1,0 +1,6 @@
+name: ZubrNPC
+version: 1.0
+main: pl.zubermc.npc.ZubrNPC
+api-version: 1.21
+authors: [zubermc.pl]
+description: NPC z własną komendą z configu
