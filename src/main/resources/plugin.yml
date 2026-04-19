@@ -2,5 +2,17 @@ name: ZubrNPC
 version: 1.0
 main: pl.zubermc.npc.ZubrNPC
 api-version: 1.21
-authors: [zubermc.pl]
-description: NPC z własną komendą z configu
+
+author: Zuberek
+description: Plugin na NPC z komendami po kliknięciu
+
+commands:
+  npczuber:
+    description: Główna komenda NPC
+    usage: /npczuber
+    permission: zubr.admin
+
+permissions:
+  zubr.admin:
+    description: Dostęp do zarządzania NPC
+    default: op
