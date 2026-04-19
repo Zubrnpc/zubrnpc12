@@ -1,0 +1,8 @@
+# Tu zmieniasz nazwy komend
+command:
+  name: npczuber
+  create: stworz
+  kill: usun
+  setcmd: komenda
+  mode: tryb
+  reload: reload
