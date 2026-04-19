@@ -5,6 +5,7 @@ import com.mojang.authlib.properties.Property;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.world.level.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.*;
@@ -27,15 +28,10 @@ public class ZubrNPC extends JavaPlugin implements Listener {
     private ServerPlayer npc;
     private int npcId;
 
-    private String commandName = "npczuber";
-    private String clickCommand = "say Witaj %player%!";
-    private boolean executeAsConsole = true;
-
     @Override
     public void onEnable() {
         Bukkit.getPluginManager().registerEvents(this, this);
         registerCommand();
-        getLogger().info("ZubrNPC PRO działa!");
     }
 
     @Override
@@ -51,32 +47,31 @@ public class ZubrNPC extends JavaPlugin implements Listener {
             f.setAccessible(true);
             CommandMap map = (CommandMap) f.get(Bukkit.getServer());
 
-            map.register("zubrnpc", new Command(commandName) {
+            map.register("zubrnpc", new Command("npczuber") {
                 @Override
                 public boolean execute(CommandSender sender, String label, String[] args) {
                     if (!(sender instanceof Player p)) return false;
 
                     if (args.length == 0) {
                         p.sendMessage("/npczuber stworz <nick>");
+                        p.sendMessage("/npczuber usun");
                         return true;
                     }
 
                     if (args[0].equalsIgnoreCase("stworz")) {
                         if (args.length < 2) {
-                            p.sendMessage("Podaj nick do skina!");
+                            p.sendMessage("Podaj nick!");
                             return true;
                         }
 
-                        String nick = args[1];
-                        String[] skin = getSkin(nick);
-
+                        String[] skin = getSkin(args[1]);
                         if (skin == null) {
-                            p.sendMessage("Nie udało się pobrać skina!");
+                            p.sendMessage("Błąd pobierania skina!");
                             return true;
                         }
 
                         spawnNPC(p.getLocation(), skin[0], skin[1]);
-                        p.sendMessage("NPC ze skinem " + nick + " stworzony!");
+                        p.sendMessage("NPC stworzony!");
                         return true;
                     }
 
@@ -101,9 +96,9 @@ public class ZubrNPC extends JavaPlugin implements Listener {
         removeNPC();
 
         var server = ((CraftServer) Bukkit.getServer()).getServer();
-        var world = ((CraftWorld) loc.getWorld()).getHandle();
+        Level world = ((CraftWorld) loc.getWorld()).getHandle();
 
-        GameProfile profile = new GameProfile(UUID.randomUUID(), "§6§lŻubr");
+        GameProfile profile = new GameProfile(UUID.randomUUID(), "§6Żubr");
 
         profile.getProperties().put("textures", new Property("textures", texture, signature));
 
@@ -112,6 +107,9 @@ public class ZubrNPC extends JavaPlugin implements Listener {
         npc.setPos(loc.getX(), loc.getY(), loc.getZ());
         npc.setYRot(loc.getYaw());
         npc.setXRot(loc.getPitch());
+
+        // 🔥 KLUCZOWE — dodanie do świata
+        world.addFreshEntity(npc);
 
         npcId = npc.getId();
 
@@ -139,6 +137,7 @@ public class ZubrNPC extends JavaPlugin implements Listener {
             conn.send(new ClientboundRemoveEntitiesPacket(npcId));
         }
 
+        npc.kill();
         npc = null;
     }
 
@@ -177,13 +176,6 @@ public class ZubrNPC extends JavaPlugin implements Listener {
         if (e.getRightClicked().getEntityId() != npcId) return;
 
         e.setCancelled(true);
-
-        String cmd = clickCommand.replace("%player%", e.getPlayer().getName());
-
-        if (executeAsConsole) {
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
-        } else {
-            e.getPlayer().performCommand(cmd);
-        }
+        e.getPlayer().sendMessage("Kliknąłeś NPC!");
     }
 }
